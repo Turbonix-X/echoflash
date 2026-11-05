@@ -21,7 +21,7 @@ const NAMES_FR = {
 };
 const KEY_LABELS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "A", "Z", "E", "R", "T", "Y", "U", "I", "O", "P"];
 const COUNT_CHIPS = [2, 3, 4, 6, 8, 10, 12, 16, 20];
-const VARIANTS = ["shuffle", "once", "eclipse", "blind", "sudden", "spin", "swap", "chaos"];
+const VARIANTS = ["shuffle", "once", "eclipse", "blind", "sudden", "spin", "swap", "chaos", "timed"];
 const PLAYERS_INFO = {
   solo: "👤 <strong>Solo</strong> : refais la suite, elle s’allonge d’une couleur à chaque manche, sans aucune limite. Tu as 3 vies.",
   turns: "🔁 <strong>Chacun son tour</strong> : les deux joueurs refont la même suite, l’un après l’autre. Le premier qui se trompe a perdu.",
@@ -29,7 +29,7 @@ const PLAYERS_INFO = {
 };
 const TAGS = {
   shuffle: "🔀 Mélange", once: "1️⃣ Une seule fois", eclipse: "🌑 Éclipse", blind: "🙈 Aveugle", sudden: "💀 Mort subite",
-  spin: "🌀 Plateau tournant", swap: "🔄 Échanges", chaos: "🤪 Pagaille",
+  spin: "🌀 Plateau tournant", swap: "🔄 Échanges", chaos: "🤪 Pagaille", timed: "⏱️ Temps limité",
 };
 const PLAYERS_TAG = { solo: "👤 Solo", turns: "🔁 Chacun son tour", trap: "🪤 Piège" };
 
@@ -39,7 +39,7 @@ const els = {};
   "recentList", "colorsCard", "colorCount", "colorRange", "countChips", "randCountBtn", "colorGrid", "dupWarn",
   "editorTitle", "colorPresets", "colorPreview", "colorInput", "colorNative", "colorError", "colorRecents",
   "randColorsBtn", "resetColorsBtn", "modesCard", "playersChips", "playersInfo", "namesBox", "name0", "name1",
-  "suddenText", "lengthField", "lengthLabel", "startLen", "randLenBtn", "growRow", "opt-grow", "speedChips", "opt-accel",
+  "suddenText", "timePill", "timeBar", "timeFill", "timedBox", "timeStart", "timeAdd", "timedExample", "lengthField", "lengthLabel", "startLen", "randLenBtn", "growRow", "opt-grow", "speedChips", "opt-accel",
   "kpiGames", "kpiBest", "kpiGood", "kpiAccuracy", "duelBox", "duelName0", "duelName1", "duelScore", "errorBars",
   "errorEmpty", "history", "resetStatsBtn", "soundBtn", "vibBtn", "shareBtn", "clearBtn", "themeBtn", "shareDialog",
   "shareLink", "copyLinkBtn", "fileWarn", "pasteLink", "loadLinkBtn", "pasteError", "exportBtn", "importInput",
@@ -52,6 +52,7 @@ const defaultConfig = () => ({
   players: "solo",
   shuffle: false, once: false, eclipse: false, blind: false, sudden: false,
   spin: false, swap: false, chaos: false,
+  timed: false, timeStart: 2, timeAdd: 1,
   startLen: 1,
   grow: false,
   speed: "normal",
@@ -75,6 +76,11 @@ const clampInt = (v, min, max, fallback) => {
   const n = Math.round(Number(v));
   return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback;
 };
+const clampTime = (v, min, max, fallback) => {
+  const n = Number(String(v).replace(",", "."));
+  return Number.isFinite(n) ? Math.max(min, Math.min(max, Math.round(n * 10) / 10)) : fallback;
+};
+const formatSeconds = (n) => `${String(Math.round(n * 10) / 10).replace(".", ",")} s`;
 const randomLogInt = (min, max) => Math.round(Math.exp(Math.log(min) + RNG.float() * (Math.log(max) - Math.log(min))));
 const formatNumber = (n) => n.toLocaleString("fr-FR");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -133,6 +139,8 @@ function sanitizeConfig(o) {
   VARIANTS.forEach((k) => { base[k] = !!o[k]; });
   base.startLen = clampInt(o.startLen, 1, MAX_LEN, 1);
   base.grow = !!o.grow;
+  base.timeStart = clampTime(o.timeStart, 0.5, 3600, base.timeStart);
+  base.timeAdd = clampTime(o.timeAdd, 0, 600, base.timeAdd);
   if (SPEEDS[o.speed]) base.speed = o.speed;
   if (typeof o.accel === "boolean") base.accel = o.accel;
   if (Array.isArray(o.names)) {
@@ -210,6 +218,8 @@ function engineConfig() {
     startLen: config.startLen,
     grow: config.grow,
     lives: 3,
+    timeStart: config.timeStart,
+    timeAdd: config.timeAdd,
   };
 }
 
@@ -217,7 +227,8 @@ function recordKey() {
   const flags = VARIANTS.filter((k) => config[k]).join("+") || "base";
   const grow = config.shuffle && config.grow ? "+long" : "";
   const start = config.players === "trap" ? 1 : config.startLen;
-  return `${config.players}|${config.colors.length}|${flags}${grow}|${start}`;
+  const timed = config.timed ? `|t${config.timeStart}+${config.timeAdd}` : "";
+  return `${config.players}|${config.colors.length}|${flags}${grow}|${start}${timed}`;
 }
 
 // ----- Plateau -----
@@ -316,6 +327,7 @@ function renderHud() {
     }
   }
 
+  right.appendChild(els.timePill);
   const record = stats.best[recordKey()] || 0;
   const pill = document.createElement("span");
   pill.className = "hud-pill gold";
@@ -372,6 +384,58 @@ function setLocked(locked) {
 
 function currentName() {
   return config.names[game.engine.player];
+}
+
+// ----- Temps limité -----
+function stopTimer(g) {
+  if (g && g.timer) {
+    clearInterval(g.timer);
+    g.timer = 0;
+  }
+  if (g) g.deadline = 0;
+  els.timeBar.classList.add("hidden");
+  els.timePill.classList.add("hidden");
+}
+
+function startTimer(g) {
+  stopTimer(g);
+  if (!config.timed) return;
+  g.limit = g.engine.timeLimit();
+  g.deadline = performance.now() + g.limit * 1000;
+  g.lastBeep = Infinity;
+  els.timeBar.classList.remove("hidden", "low");
+  els.timePill.classList.remove("hidden", "low");
+  g.timer = setInterval(() => tickTimer(g), 50);
+  tickTimer(g);
+}
+
+function tickTimer(g) {
+  if (game !== g || g.engine.phase !== "input") {
+    stopTimer(g);
+    return;
+  }
+  const left = (g.deadline - performance.now()) / 1000;
+  if (left <= 0) {
+    onTimeUp(g);
+    return;
+  }
+  els.timeFill.style.transform = `scaleX(${left / g.limit})`;
+  els.timePill.textContent = `⏱️ ${left.toFixed(1).replace(".", ",")} s`;
+  const low = left <= Math.min(3, g.limit * 0.35);
+  els.timeBar.classList.toggle("low", low);
+  els.timePill.classList.toggle("low", low);
+  // Un petit bip par seconde quand il ne reste presque plus rien
+  const whole = Math.ceil(left);
+  if (low && whole < g.lastBeep) {
+    g.lastBeep = whole;
+    Sound.ping();
+  }
+}
+
+function onTimeUp(g) {
+  stopTimer(g);
+  const ev = g.engine.timeUp();
+  if (ev) handleWrong(g, ev);
 }
 
 function startGame() {
@@ -444,6 +508,7 @@ async function proceed(g, delay = 0) {
     board.setCore({ big: 0, small: `sur ${formatNumber(e.seq.length)}`, progress: 0 });
     const who = e.versus ? `${currentName()}, à toi !` : "À toi !";
     setStatus(roundLabel(e), `${who} 👆`);
+    startTimer(g);
   } else if (e.phase === "add") {
     board.setCore({ big: "+1", small: "ajoute", progress: 1 });
     const other = config.names[1 - e.player];
@@ -454,8 +519,9 @@ async function proceed(g, delay = 0) {
 }
 
 function roundLabel(e) {
-  if (e.cfg.players === "trap") return `Suite de ${formatNumber(e.seq.length)}`;
-  return `Manche ${formatNumber(e.round)} · suite de ${formatNumber(e.seq.length)}`;
+  const time = config.timed ? ` · ${formatSeconds(e.timeLimit())}` : "";
+  if (e.cfg.players === "trap") return `Suite de ${formatNumber(e.seq.length)}${time}`;
+  return `Manche ${formatNumber(e.round)} · suite de ${formatNumber(e.seq.length)}${time}`;
 }
 
 function waitVisible() {
@@ -552,9 +618,15 @@ function pressColor(color) {
   const e = g.engine;
   if (g.previewing) return;
   if (e.phase !== "input" && e.phase !== "add") return;
+  // Appui arrivé juste après la fin du temps, avant le prochain contrôle du minuteur
+  if (e.phase === "input" && g.deadline && performance.now() >= g.deadline) {
+    onTimeUp(g);
+    return;
+  }
   const ev = e.press(color);
   if (!ev) return;
   g.presses++;
+  if (ev.type === "complete" || ev.type === "wrong") stopTimer(g);
 
   if (ev.type === "wrong") {
     handleWrong(g, ev);
@@ -631,14 +703,15 @@ function handleWrong(g, ev) {
   const lost = hearts[ev.lives];
   if (lost) lost.classList.add("lost", "breaking");
   const plural = ev.lives > 1 ? "vies" : "vie";
-  setStatus("Raté !", `Il te reste ${ev.lives} ${plural} 💔`);
-  board.setCore({ big: "✕", small: "raté", progress: 0 });
+  setStatus(ev.timeout ? "Temps écoulé ⏰" : "Raté !", `Il te reste ${ev.lives} ${plural} 💔`);
+  board.setCore({ big: "✕", small: ev.timeout ? "trop tard" : "raté", progress: 0 });
   proceed(g, 1500);
 }
 
 function finishGame(g, ev) {
   const e = g.engine;
   game = null;
+  stopTimer(g);
   els.stage.classList.remove("rolling");
   board.setShow("all");
   board.setMotion(null);
@@ -652,13 +725,13 @@ function finishGame(g, ev) {
   if (ev.winner !== null) {
     const winner = config.names[ev.winner];
     const loser = config.names[1 - ev.winner];
-    setStatus(`${loser} s’est trompé`, `🏆 ${winner} gagne !`);
+    setStatus(ev.timeout ? `${loser} n’a pas fini à temps ⏰` : `${loser} s’est trompé`, `🏆 ${winner} gagne !`);
     board.setCore({ big: "🏆", small: winner.slice(0, 10), progress: 1, tintTo: [255, 214, 10] });
     Sound.fanfare();
     board.celebrate(2);
   } else {
     const label = config.shuffle && !config.grow ? "Suites réussies" : "Plus longue suite";
-    setStatus("Partie terminée", `${label} : ${formatNumber(e.score)}`);
+    setStatus(ev.timeout ? "Temps écoulé ⏰ · partie terminée" : "Partie terminée", `${label} : ${formatNumber(e.score)}`);
     board.setCore({ big: formatNumber(e.score), small: "score", progress: 0 });
     Sound.gameOver();
   }
@@ -674,6 +747,7 @@ function abandonGame() {
   const g = game;
   if (!g) return;
   game = null;
+  stopTimer(g);
   g.engine.abandon();
   els.stage.classList.remove("rolling");
   board.setShow("all");
@@ -721,7 +795,11 @@ function recordGame(g, winner) {
 function renderTags() {
   const tags = [PLAYERS_TAG[config.players], `🎨 ${config.colors.length} couleurs`];
   VARIANTS.forEach((k) => {
-    if (config[k] && !(k === "sudden" && config.players !== "solo")) tags.push(TAGS[k]);
+    if (k === "timed") {
+      if (config.timed) tags.push(`⏱️ ${formatSeconds(config.timeStart)} +${formatSeconds(config.timeAdd)}`);
+    } else if (config[k] && !(k === "sudden" && config.players !== "solo")) {
+      tags.push(TAGS[k]);
+    }
   });
   els.modeTags.innerHTML = "";
   tags.forEach((t) => {
@@ -873,6 +951,11 @@ function renderModes() {
   els.suddenText.textContent = versus
     ? "Toujours actif à deux : le premier qui se trompe a perdu."
     : "Tu meurs à la première faute (sinon, tu as 3 vies).";
+
+  els.timedBox.classList.toggle("hidden", !config.timed);
+  els.timeStart.value = config.timeStart;
+  els.timeAdd.value = config.timeAdd;
+  els.timedExample.textContent = `Manche 1 : ${formatSeconds(config.timeStart)} · manche 2 : ${formatSeconds(config.timeStart + config.timeAdd)} · manche 3 : ${formatSeconds(config.timeStart + config.timeAdd * 2)}…`;
 
   els.lengthField.classList.toggle("hidden", trap);
   els.lengthLabel.textContent = config.shuffle ? "Longueur de la suite" : "Longueur de départ";
@@ -1179,6 +1262,13 @@ function bindEvents() {
     renderHud();
     save();
   });
+  [["timeStart", 0.5, 3600], ["timeAdd", 0, 600]].forEach(([key, min, max]) => {
+    els[key].addEventListener("change", () => {
+      config[key] = clampTime(els[key].value, min, max, config[key]);
+      renderModes();
+      save();
+    });
+  });
   els.randLenBtn.addEventListener("click", () => {
     Sound.click();
     config.startLen = randomLogInt(1, 1000);
@@ -1331,6 +1421,8 @@ function randomizeAll() {
   normalizeConfig(config);
   config.startLen = randomLogInt(1, 12);
   config.grow = RNG.int(2) === 0;
+  config.timeStart = 2 + RNG.int(9);
+  config.timeAdd = 1 + RNG.int(3);
   config.speed = Object.keys(SPEEDS)[RNG.int(4)];
   renderAll();
   applyBoardColors();

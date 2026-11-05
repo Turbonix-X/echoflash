@@ -97,6 +97,52 @@ body.busy .game-stage { touch-action: none; }
   100% { transform: scale(0.75) rotate(-12deg); }
 }
 
+/* ---------- Temps limité ---------- */
+
+.time-pill { font-variant-numeric: tabular-nums; color: var(--yellow); }
+.time-pill.low {
+  color: #fff;
+  background: #e8336f;
+  border-color: #ff6b9a;
+  animation: time-beat 0.5s var(--ease) infinite;
+}
+@keyframes time-beat { 50% { transform: scale(1.12); box-shadow: 0 0 16px rgba(255, 77, 109, 0.8); } }
+
+.time-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 7px;
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.1);
+  pointer-events: none;
+}
+.time-bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--mauve), var(--yellow));
+  box-shadow: 0 0 12px rgba(255, 214, 10, 0.6);
+  transform-origin: left center;
+}
+.time-bar.low span {
+  background: linear-gradient(90deg, #e8336f, #ff6b9a);
+  box-shadow: 0 0 14px rgba(255, 77, 109, 0.9);
+}
+
+.timed-box {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px dashed var(--mauve);
+  background: var(--mauve-soft);
+  animation: tx-rise 0.35s var(--ease) both;
+}
+.timed-box .input { width: 100%; }
+.timed-example { grid-column: 1 / -1; }
+
 /* ---------- Résultat et ruban des dernières couleurs ---------- */
 
 #status { margin-top: 12px; min-height: 2.6em; }
@@ -247,6 +293,7 @@ body.busy .game-stage { touch-action: none; }
   .hud-pill { font-size: 0.72rem; padding: 3px 8px; max-width: 110px; }
   .heart { font-size: 1rem; }
   .names-row { grid-template-columns: 1fr; }
+  .timed-box { grid-template-columns: 1fr; }
   .color-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
   .trail-dot { width: 14px; height: 14px; }
   .trail .trail-dot:nth-child(-n+4) { display: none; }

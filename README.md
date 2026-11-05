@@ -32,6 +32,7 @@ Un jeu de mémoire en 2D ou en 3D : des orbes de couleur s'allument, il faut ref
 - **Plateau tournant** : le plateau tourne pendant qu'on joue.
 - **Échanges** : des couleurs échangent leur place au hasard pendant qu'on joue.
 - **Pagaille** : les couleurs filent dans tous les sens et rebondissent partout.
+- **Temps limité** : on choisit le temps de départ et le +N. Avec 2 secondes et +1, on a 2 s à la manche 1, 3 s à la manche 2, 4 s à la manche 3… Temps écoulé = une faute.
 
 Quelques variantes ne vont pas ensemble (Mélange et Une seule fois, Éclipse et Aveugle, Mélange et Piège, Pagaille avec Plateau tournant ou Échanges). Le site le dit et coupe l'autre.
 

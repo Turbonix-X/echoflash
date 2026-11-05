@@ -127,6 +127,19 @@ class GameEngine {
 
   abandon() { this.phase = "over"; }
 
+  // Temps limité : le temps de départ, plus timeAdd secondes par manche déjà passée
+  timeLimit() {
+    return this.cfg.timeStart + this.cfg.timeAdd * (this.round - 1);
+  }
+
+  // Le temps est écoulé : ça compte comme une faute
+  timeUp() {
+    if (this.phase !== "input") return null;
+    const ev = this._wrong(-1, this.seq.at(this.pos));
+    ev.timeout = true;
+    return ev;
+  }
+
   _pressInput(color) {
     const expected = this.seq.at(this.pos);
     if (color !== expected) return this._wrong(color, expected);

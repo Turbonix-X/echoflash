@@ -70,6 +70,8 @@
           <div id="hudLeft" class="hud-group"></div>
           <div id="hudRight" class="hud-group"></div>
         </div>
+        <span id="timePill" class="hud-pill time-pill hidden"></span>
+        <div id="timeBar" class="time-bar hidden" aria-hidden="true"><span id="timeFill"></span></div>
       </div>
 
       <p id="status" class="result" aria-live="polite"></p>
@@ -186,6 +188,21 @@
           <span class="switch"><input id="opt-chaos" type="checkbox"><span class="switch-track"><span class="switch-thumb"></span></span></span>
           <span class="mode-text"><strong>🤪 Pagaille</strong><small>Les couleurs filent dans tous les sens et rebondissent partout. Bonne chance pour viser !</small></span>
         </label>
+        <label class="mode-row" id="row-timed">
+          <span class="switch"><input id="opt-timed" type="checkbox"><span class="switch-track"><span class="switch-thumb"></span></span></span>
+          <span class="mode-text"><strong>⏱️ Temps limité</strong><small>Tu as un temps limité pour refaire la suite, et quelques secondes de plus à chaque manche. Temps écoulé = une faute.</small></span>
+        </label>
+        <div id="timedBox" class="timed-box hidden">
+          <div class="field">
+            <label for="timeStart">Temps au début <small>(en secondes)</small></label>
+            <input id="timeStart" class="input" type="number" min="0.5" max="3600" step="0.5" inputmode="decimal">
+          </div>
+          <div class="field">
+            <label for="timeAdd">À chaque manche : +N <small>(secondes)</small></label>
+            <input id="timeAdd" class="input" type="number" min="0" max="600" step="0.5" inputmode="decimal">
+          </div>
+          <p id="timedExample" class="muted small timed-example"></p>
+        </div>
       </div>
 
       <div class="divider">
