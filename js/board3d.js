@@ -424,6 +424,8 @@ class Board3D extends BoardBase {
   }
 
   onFlash(p, ms, strength) {
+    // Les orbes n'existent pas tant que la zone de jeu n'a pas de taille (onglet ou panneau qui s'ouvre)
+    if (!this.meshes || !this.meshes[p.i]) return;
     const quick = ms < 120;
     this._shock(p.x, p.z, p.r * 0.9, p.r * 2.9, p.hex, quick ? 0.35 : 0.7);
     this._burst(p.x, p.r + 1, p.z, this.meshes[p.i].color, Math.round((quick ? 5 : 16) * strength));
@@ -460,7 +462,7 @@ class Board3D extends BoardBase {
 
   // ----- Pointeur -----
   pick(x, y) {
-    if (!this.W) return -1;
+    if (!this.W || !this.meshes || this.meshes.length !== this.pads.length) return -1;
     let best = -1;
     let bestD = Infinity;
     for (const p of this.pads) {
@@ -485,7 +487,7 @@ class Board3D extends BoardBase {
 
   // ----- Dessin -----
   draw(dt) {
-    if (!this.W || !this.meshes) return;
+    if (!this.W || !this.meshes || this.meshes.length !== this.pads.length) return;
     const time = this.time;
 
     // Caméra : suit doucement le pointeur et respire
