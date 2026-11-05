@@ -21,7 +21,7 @@ const NAMES_FR = {
 };
 const KEY_LABELS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "A", "Z", "E", "R", "T", "Y", "U", "I", "O", "P"];
 const COUNT_CHIPS = [2, 3, 4, 6, 8, 10, 12, 16, 20];
-const VARIANTS = ["shuffle", "once", "eclipse", "blind", "sudden"];
+const VARIANTS = ["shuffle", "once", "eclipse", "blind", "sudden", "spin", "swap", "chaos"];
 const PLAYERS_INFO = {
   solo: "👤 <strong>Solo</strong> : refais la suite, elle s’allonge d’une couleur à chaque manche, sans aucune limite. Tu as 3 vies.",
   turns: "🔁 <strong>Chacun son tour</strong> : les deux joueurs refont la même suite, l’un après l’autre. Le premier qui se trompe a perdu.",
@@ -29,6 +29,7 @@ const PLAYERS_INFO = {
 };
 const TAGS = {
   shuffle: "🔀 Mélange", once: "1️⃣ Une seule fois", eclipse: "🌑 Éclipse", blind: "🙈 Aveugle", sudden: "💀 Mort subite",
+  spin: "🌀 Plateau tournant", swap: "🔄 Échanges", chaos: "🤪 Pagaille",
 };
 const PLAYERS_TAG = { solo: "👤 Solo", turns: "🔁 Chacun son tour", trap: "🪤 Piège" };
 
@@ -50,6 +51,7 @@ const defaultConfig = () => ({
   colors: PALETTE.slice(0, 4).map(([name, hex]) => ({ name, hex })),
   players: "solo",
   shuffle: false, once: false, eclipse: false, blind: false, sudden: false,
+  spin: false, swap: false, chaos: false,
   startLen: 1,
   grow: false,
   speed: "normal",
@@ -187,6 +189,14 @@ function normalizeConfig(c, changed) {
     if (changed === "blind") off("eclipse", "🌑 Éclipse coupée : il ne va pas avec Aveugle.");
     else off("blind", "🙈 Aveugle coupé : il ne va pas avec Éclipse.");
   }
+  if (c.chaos && (c.spin || c.swap)) {
+    if (changed === "chaos") {
+      off("spin", "🌀 Plateau tournant coupé : il ne va pas avec Pagaille.");
+      off("swap", "🔄 Échanges coupés : ils ne vont pas avec Pagaille.");
+    } else {
+      off("chaos", "🤪 Pagaille coupée : elle ne va pas avec ce mode.");
+    }
+  }
   return messages;
 }
 
@@ -244,6 +254,8 @@ async function setView(view, { silent = false } = {}) {
   board.canvas.style.display = "block";
   config.view = target;
   applyBoardColors();
+  // Après les couleurs : les orbes d'un plateau tout neuf doivent exister pour partir de leur place
+  if (previous && previous !== board) board.setMotion(previous.motion);
   board.start();
 
   els.viewSwitch.dataset.active = target === "3d" ? "1" : "0";
@@ -381,8 +393,16 @@ function startGame() {
   Sound.start();
   Haptics.vibrate(15);
   els.stage.scrollIntoView({ behavior: "smooth", block: "center" });
-  if (config.blind) runSoundPreview(game);
-  else proceed(game, 500);
+  if (config.blind) {
+    runSoundPreview(game);
+  } else {
+    startMotion();
+    proceed(game, 500);
+  }
+}
+
+function startMotion() {
+  board.setMotion({ spin: config.spin, swap: config.swap, chaos: config.chaos });
 }
 
 // Mode Aveugle : avant de commencer, chaque couleur joue sa note une fois
@@ -405,6 +425,7 @@ async function runSoundPreview(g) {
   }
   if (game !== g) return;
   g.previewing = false;
+  startMotion();
   setStatus("À toi de retenir !", "La partie commence… 🙈");
   proceed(g, 900);
 }
@@ -620,6 +641,7 @@ function finishGame(g, ev) {
   game = null;
   els.stage.classList.remove("rolling");
   board.setShow("all");
+  board.setMotion(null);
   recordGame(g, ev.winner);
   setLocked(false);
   renderHud();
@@ -655,6 +677,7 @@ function abandonGame() {
   g.engine.abandon();
   els.stage.classList.remove("rolling");
   board.setShow("all");
+  board.setMotion(null);
   if (g.presses > 0) recordGame(g, null);
   setLocked(false);
   clearTrail();

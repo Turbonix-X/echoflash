@@ -166,6 +166,7 @@ class Board3D extends BoardBase {
     const tex = new T.CanvasTexture(c);
     tex.encoding = T.sRGBEncoding;
     tex.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+    tex.center.set(0.5, 0.5); // Pour faire tourner le tapis autour de son centre
     return tex;
   }
 
@@ -323,14 +324,13 @@ class Board3D extends BoardBase {
     }
     this.pads.forEach((p, i) => {
       const at = this.layout.pads[i];
-      p.x = at.x;
-      p.z = at.y;
       p.r = at.r * 0.8; // Les orbes flottent, donc paraissent plus grosses : on les réduit un peu
       const m = this.meshes[i];
       m.pool.scale.setScalar(p.r * 2.6);
       m.pool.position.y = 0.02;
       m.ring.position.y = 0.05;
     });
+    this.setSlots(this.layout.pads);
 
     const ring = this.layout.rings[0];
     const extX = ring.rx + this.layout.r + 0.8;
@@ -348,6 +348,11 @@ class Board3D extends BoardBase {
     this.coreGroup.position.y = coreR * 0.75 + 0.3;
     this.label.position.set(0, this.coreGroup.position.y + coreR * 0.2, 0);
     this.label.scale.setScalar(coreR * 1.7);
+  }
+
+  place(p, x, y) {
+    p.x = x;
+    p.z = y;
   }
 
   // ----- Texte du centre -----
@@ -579,6 +584,7 @@ class Board3D extends BoardBase {
     this.coreLight.color.copy(tint);
     this.coreLight.intensity = 0.8 + c.pulse * 1.6;
     this.flashLight.intensity *= Math.exp(-dt * 7);
+    this.table.material.map.rotation = this.spinAngle;
 
     this._updateFx(dt);
     this.renderer.render(this.scene, this.camera);

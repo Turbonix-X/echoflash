@@ -22,7 +22,7 @@ function layoutPads(n, W, H, unit = 1) {
   const place = (count, rx, ry, r, start) => {
     for (let k = 0; k < count; k++) {
       const a = start + (k / count) * Math.PI * 2;
-      pads.push({ x: Math.cos(a) * rx, y: Math.sin(a) * ry, r });
+      pads.push({ x: Math.cos(a) * rx, y: Math.sin(a) * ry, r, angle: a, rx, ry });
     }
     rings.push({ rx, ry });
   };
@@ -70,7 +70,13 @@ class BoardBase {
     this.running = false;
     this.visible = true;
     this.colorsKey = "";
-    this.reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    this.slots = [];
+    this.motion = { spin: false, swap: false, chaos: false };
+    this.spinAngle = 0;
+    this.spinSpeed = 0;
+    this.spinDir = 1;
+    this.swapIn = 0;
+    this.reduced =matchMedia("(prefers-reduced-motion: reduce)").matches;
     this.time = 0;
     this.lastFrame = 0;
     this._loop = this._loop.bind(this);
@@ -131,12 +137,191 @@ class BoardBase {
         appear: old ? 1 : 0, appearV: 0,
         appearAt: old ? 0 : performance.now() + 60 + i * 34,
         phase: i * 1.7,
+        slot: i, slotFrom: i, swapT: 1, swapDur: 0.6,
+        ox: 0, oy: 0, cx: 0, cy: 0, dir: 0,
       };
     });
     this.relayout();
   }
 
   relayout() {}
+
+  // Reçoit les emplacements calculés par layoutPads
+  setSlots(slots) {
+    this.slots = slots;
+    if (this.motion.spin || this.motion.swap || this.motion.chaos) return;
+    this.pads.forEach((p) => {
+      const s = slots[p.slot];
+      p.ox = Math.cos(s.angle + this.spinAngle) * s.rx;
+      p.oy = Math.sin(s.angle + this.spinAngle) * s.ry;
+      this.place(p, p.ox, p.oy);
+    });
+  }
+
+  // Pose une orbe dans le repère du plateau (centre = 0, 0)
+  place() {}
+
+  // ----- Plateau tournant, échanges, pagaille -----
+  setMotion(flags) {
+    const was = this.motion;
+    const next = {
+      spin: !!(flags && flags.spin),
+      swap: !!(flags && flags.swap),
+      chaos: !!(flags && flags.chaos),
+    };
+    this.motion = next;
+    if (next.spin && !was.spin) this.spinDir = Math.random() < 0.5 ? -1 : 1;
+    if (next.swap && !was.swap) this.swapIn = 0.8;
+    if (next.chaos && !was.chaos) {
+      this.pads.forEach((p) => {
+        p.cx = p.ox;
+        p.cy = p.oy;
+        p.dir = Math.random() * Math.PI * 2;
+      });
+    }
+    if (was.swap && !next.swap) {
+      // Chaque orbe retourne à sa place d'origine
+      this.pads.forEach((p) => {
+        p.slotFrom = p.slot;
+        p.slot = p.i;
+        p.swapT = p.slotFrom === p.slot ? 1 : 0;
+        p.swapDur = 0.7;
+      });
+    }
+  }
+
+  _startSwaps() {
+    const free = this.pads.filter((p) => p.swapT >= 1);
+    const pairs = this.pads.length >= 12 ? 2 : 1;
+    for (let k = 0; k < pairs && free.length >= 2; k++) {
+      const a = free.splice(Math.floor(Math.random() * free.length), 1)[0];
+      const b = free.splice(Math.floor(Math.random() * free.length), 1)[0];
+      a.slotFrom = a.slot;
+      b.slotFrom = b.slot;
+      a.slot = b.slotFrom;
+      b.slot = a.slotFrom;
+      a.swapT = b.swapT = 0;
+      a.swapDur = b.swapDur = 0.6;
+    }
+  }
+
+  // Pagaille : les orbes filent dans tous les sens, rebondissent sur le bord, le centre et entre elles
+  _moveChaos(dt) {
+    const { rx, ry } = this.slots[0];
+    const speed = Math.min(rx, ry) * 0.55;
+    const coreR = this.layout.coreR;
+    const pads = this.pads;
+    // Quand il y a beaucoup d'orbes, elles peuvent se chevaucher un peu : sinon elles se coincent
+    const padR = pads[0].r;
+    const room = Math.PI * (rx * ry - coreR * coreR);
+    const spacing = Math.min(1.06, Math.sqrt((0.38 * room) / (pads.length * Math.PI * padR * padR)));
+    const bounce = (p, nx, ny) => {
+      const vx = Math.cos(p.dir);
+      const vy = Math.sin(p.dir);
+      const dot = vx * nx + vy * ny;
+      if (dot > 0) p.dir = Math.atan2(vy - 2 * dot * ny, vx - 2 * dot * nx);
+    };
+    for (const p of pads) {
+      p.dir += (Math.random() - 0.5) * dt * 7;
+      p.cx += Math.cos(p.dir) * speed * dt;
+      p.cy += Math.sin(p.dir) * speed * dt;
+
+      const e = (p.cx * p.cx) / (rx * rx) + (p.cy * p.cy) / (ry * ry);
+      if (e > 1) {
+        const s = 1 / Math.sqrt(e);
+        p.cx *= s;
+        p.cy *= s;
+        const nx = p.cx / (rx * rx);
+        const ny = p.cy / (ry * ry);
+        const len = Math.hypot(nx, ny) || 1;
+        bounce(p, nx / len, ny / len);
+      }
+
+      const dist = Math.hypot(p.cx, p.cy) || 0.001;
+      const minCore = coreR + p.r + coreR * 0.1;
+      if (dist < minCore) {
+        p.cx *= minCore / dist;
+        p.cy *= minCore / dist;
+        bounce(p, -p.cx / minCore, -p.cy / minCore);
+      }
+    }
+    for (let a = 0; a < pads.length; a++) {
+      for (let b = a + 1; b < pads.length; b++) {
+        const pa = pads[a];
+        const pb = pads[b];
+        const dx = pb.cx - pa.cx;
+        const dy = pb.cy - pa.cy;
+        const d = Math.hypot(dx, dy) || 0.001;
+        const min = (pa.r + pb.r) * spacing;
+        if (d >= min) continue;
+        const nx = dx / d;
+        const ny = dy / d;
+        const push = (min - d) / 2;
+        pa.cx -= nx * push;
+        pa.cy -= ny * push;
+        pb.cx += nx * push;
+        pb.cy += ny * push;
+        bounce(pa, nx, ny);
+        bounce(pb, -nx, -ny);
+      }
+    }
+  }
+
+  _updateMotion(dt) {
+    const m = this.motion;
+    const slots = this.slots;
+    if (!slots.length || slots.length !== this.pads.length) return;
+
+    if (m.spin) {
+      this.spinSpeed += (this.spinDir * 0.5 - this.spinSpeed) * (1 - Math.exp(-dt * 2.5));
+      this.spinAngle += this.spinSpeed * dt;
+    } else if (this.spinAngle) {
+      // Retour à la position de départ par le chemin le plus court
+      this.spinSpeed = 0;
+      this.spinAngle = Math.atan2(Math.sin(this.spinAngle), Math.cos(this.spinAngle)) * Math.exp(-dt * 3.5);
+      if (Math.abs(this.spinAngle) < 0.001) this.spinAngle = 0;
+    }
+
+    if (m.swap) {
+      this.swapIn -= dt;
+      if (this.swapIn <= 0) {
+        this._startSwaps();
+        this.swapIn = 1.1 + Math.random() * 0.9;
+      }
+    }
+    if (m.chaos) this._moveChaos(dt);
+
+    const moving = m.spin || m.swap || m.chaos;
+    const smooth = 1 - Math.exp(-dt * (moving ? 18 : 5));
+    for (const p of this.pads) {
+      let tx;
+      let ty;
+      if (m.chaos) {
+        tx = p.cx;
+        ty = p.cy;
+      } else {
+        const to = slots[p.slot];
+        tx = Math.cos(to.angle + this.spinAngle) * to.rx;
+        ty = Math.sin(to.angle + this.spinAngle) * to.ry;
+        if (p.swapT < 1) {
+          p.swapT = Math.min(1, p.swapT + dt / p.swapDur);
+          const from = slots[p.slotFrom];
+          const fx = Math.cos(from.angle + this.spinAngle) * from.rx;
+          const fy = Math.sin(from.angle + this.spinAngle) * from.ry;
+          const t = p.swapT * p.swapT * (3 - 2 * p.swapT);
+          const arc = Math.sin(Math.PI * t) * 0.28;
+          // Les deux orbes passent chacune d'un côté, sans se traverser
+          const dx = tx - fx;
+          const dy = ty - fy;
+          tx = fx + dx * t - dy * arc;
+          ty = fy + dy * t + dx * arc;
+        }
+      }
+      p.ox += (tx - p.ox) * smooth;
+      p.oy += (ty - p.oy) * smooth;
+      this.place(p, p.ox, p.oy);
+    }
+  }
 
   // ----- Actions du jeu -----
   setShow(mode) { this.show = mode; }
@@ -226,6 +411,8 @@ class BoardBase {
       this.timers = pending;
       for (const t of due) t.fn();
     }
+
+    this._updateMotion(dt);
 
     let energy = 0;
     for (const p of this.pads) {

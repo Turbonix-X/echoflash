@@ -29,8 +29,11 @@ Un jeu de mémoire en 2D ou en 3D : des orbes de couleur s'allument, il faut ref
 - **Éclipse** : pendant la démonstration, seule la couleur qui s'allume apparaît à l'écran.
 - **Aveugle** : au début, chaque couleur joue son son une fois. Ensuite, on n'entend que le son.
 - **Mort subite** : on meurt à la première faute.
+- **Plateau tournant** : le plateau tourne pendant qu'on joue.
+- **Échanges** : des couleurs échangent leur place au hasard pendant qu'on joue.
+- **Pagaille** : les couleurs filent dans tous les sens et rebondissent partout.
 
-Quelques variantes ne vont pas ensemble (Mélange et Une seule fois, Éclipse et Aveugle, Mélange et Piège). Le site le dit et coupe l'autre.
+Quelques variantes ne vont pas ensemble (Mélange et Une seule fois, Éclipse et Aveugle, Mélange et Piège, Pagaille avec Plateau tournant ou Échanges). Le site le dit et coupe l'autre.
 
 ### Le reste
 

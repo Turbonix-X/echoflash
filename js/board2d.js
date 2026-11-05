@@ -44,14 +44,18 @@ class Board2D extends BoardBase {
     this.cy = H / 2 + 14;
     this.pads.forEach((p, i) => {
       const at = this.layout.pads[i];
-      p.x = this.cx + at.x;
-      p.y = this.cy + at.y;
       p.r = at.r;
-      p.orb = this._makeOrb(p.rgb, p.r, false);
+      p.orb =this._makeOrb(p.rgb, p.r, false);
       p.gray = this._makeOrb([104, 100, 124], p.r, true);
       p.halo = this._radial(p.rgb);
       p.css = rgbCss(p.rgb);
     });
+    this.setSlots(this.layout.pads);
+  }
+
+  place(p, x, y) {
+    p.x = this.cx + x;
+    p.y = this.cy + y;
   }
 
   // ----- Images préparées à l'avance (dessiner une image coûte très peu) -----
