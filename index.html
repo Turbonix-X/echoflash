@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ÉchoFlash — Turbonix</title>
+  <link rel="icon" href="logo.svg" type="image/svg+xml">
+  <script>
+    // Applique le thème avant l'affichage pour éviter un flash
+    (function () {
+      var prefs = {};
+      try { prefs = JSON.parse(localStorage.getItem("echo-prefs")) || {}; } catch (e) {}
+      var theme = prefs.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.dataset.theme = theme;
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="turbonix.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="bg-blobs" aria-hidden="true"><span></span><span></span><span></span></div>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <h1 class="site-title">Écho<span>Flash</span></h1>
+      <div class="header-right">
+        <button id="soundBtn" class="hbtn" aria-pressed="true" title="Sons activés" aria-label="Activer ou couper les sons">
+          <svg class="on" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>
+          <svg class="off" viewBox="0 0 24 24"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/></svg>
+        </button>
+        <button id="vibBtn" class="hbtn" aria-pressed="true" title="Vibrations activées" aria-label="Activer ou couper les vibrations">
+          <svg class="on" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M3 8v8"/><path d="M21 8v8"/></svg>
+          <svg class="off" viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M3 3l18 18"/></svg>
+        </button>
+        <button id="shareBtn" class="hbtn" title="Partager / sauvegarder" aria-label="Partager la configuration">
+          <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5"/></svg>
+        </button>
+        <button id="clearBtn" class="hbtn danger" title="Effacer la sauvegarde" aria-label="Effacer la sauvegarde">
+          <svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/></svg>
+        </button>
+        <button id="themeBtn" class="theme-toggle" aria-label="Changer de thème" title="Mode sombre / clair">
+          <span class="theme-icon sun">☀️</span>
+          <span class="theme-icon moon">🌙</span>
+        </button>
+        <a href="#" class="logo" aria-label="Turbonix Entertainment">
+          <img src="logo.svg" alt="Logo Turbonix" width="44" height="44">
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- ===== Zone de jeu ===== -->
+    <section class="card full play">
+      <div class="stage-top">
+        <div id="viewSwitch" class="pill-switch" data-active="0" role="group" aria-label="Affichage du jeu">
+          <span class="pill-indicator"></span>
+          <button data-view="2d" class="active">✨ 2D</button>
+          <button data-view="3d">🧊 3D</button>
+        </div>
+        <div id="modeTags" class="mode-tags"></div>
+      </div>
+
+      <div id="stage" class="stage-zone game-stage" role="application" aria-label="Plateau de couleurs">
+        <div id="boardHost" class="board-host"></div>
+        <div class="hud" aria-hidden="true">
+          <div id="hudLeft" class="hud-group"></div>
+          <div id="hudRight" class="hud-group"></div>
+        </div>
+      </div>
+
+      <p id="status" class="result" aria-live="polite"></p>
+      <div id="trail" class="trail" aria-hidden="true"></div>
+
+      <div class="actions">
+        <button id="playBtn" class="btn btn-primary">▶ Lancer la partie</button>
+        <button id="ghostBtn" class="btn btn-ghost">🔀 Tout au hasard</button>
+      </div>
+      <p id="hint" class="hint">Astuces : <kbd>Espace</kbd> ou un clic sur le centre pour lancer · clique sur les couleurs ou utilise les touches <kbd>1</kbd>…<kbd>0</kbd> puis <kbd>A</kbd>…<kbd>P</kbd> · hors partie, chaque couleur joue sa note pour t’entraîner.</p>
+
+      <div class="divider">
+        <h3 class="recent-title">10 dernières parties</h3>
+        <ol id="recentList" class="recent-list"></ol>
+      </div>
+    </section>
+
+    <!-- ===== Couleurs ===== -->
+    <section id="colorsCard" class="card full">
+      <div class="card-head">
+        <h2>Couleurs</h2>
+        <div class="tools-row">
+          <button id="randColorsBtn" class="btn btn-small">🎲 Couleurs au hasard</button>
+          <button id="resetColorsBtn" class="btn btn-small">↺ Palette Turbonix</button>
+        </div>
+      </div>
+
+      <div class="count-row">
+        <div class="field">
+          <label for="colorCount">Nombre de couleurs <small>(2 à 20)</small></label>
+          <div class="field-row">
+            <input id="colorCount" type="number" min="2" max="20" inputmode="numeric">
+            <button id="randCountBtn" class="icon-btn" title="Nombre de couleurs aléatoire" aria-label="Nombre de couleurs aléatoire">🎲</button>
+          </div>
+        </div>
+        <div class="count-slider">
+          <input id="colorRange" class="range" type="range" min="2" max="20" step="1" aria-label="Nombre de couleurs">
+          <div id="countChips" class="presets"></div>
+        </div>
+      </div>
+
+      <div id="colorGrid" class="color-grid"></div>
+      <p id="dupWarn" class="warn hidden">⚠️ Deux couleurs sont identiques : tu ne pourras les distinguer qu’à leur position.</p>
+
+      <div class="color-editor divider">
+        <h3 id="editorTitle" class="editor-title"></h3>
+        <div id="colorPresets" class="swatches"></div>
+        <div class="color-search">
+          <span id="colorPreview" class="color-preview"></span>
+          <input id="colorInput" class="color-input" type="text" placeholder="#ff8800, orange, rouge…" spellcheck="false" autocomplete="off" aria-label="Chercher une couleur">
+          <label class="color-pick" title="Choisir dans la palette"><input id="colorNative" type="color" aria-label="Palette de couleurs"><span>🎨</span></label>
+        </div>
+        <p id="colorError" class="error hidden"></p>
+        <div class="muted small recent-label">Couleurs récentes</div>
+        <div id="colorRecents" class="swatches"></div>
+      </div>
+    </section>
+
+    <!-- ===== Modes de jeu ===== -->
+    <section id="modesCard" class="card">
+      <div class="card-head">
+        <h2>Modes de jeu</h2>
+      </div>
+
+      <div id="playersChips" class="presets players-chips">
+        <button class="chip" data-players="solo">👤 Solo</button>
+        <button class="chip" data-players="turns">🔁 Chacun son tour</button>
+        <button class="chip" data-players="trap">🪤 Piège</button>
+      </div>
+      <p id="playersInfo" class="info"></p>
+
+      <div id="namesBox" class="names-row hidden">
+        <div class="field">
+          <label for="name0">Joueur 1</label>
+          <input id="name0" class="input" type="text" maxlength="16" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="name1">Joueur 2</label>
+          <input id="name1" class="input" type="text" maxlength="16" autocomplete="off">
+        </div>
+      </div>
+
+      <h3>Variantes <small class="muted">(à combiner comme tu veux)</small></h3>
+      <div class="mode-list">
+        <label class="mode-row" id="row-shuffle">
+          <span class="switch"><input id="opt-shuffle" type="checkbox"><span class="switch-track"><span class="switch-thumb"></span></span></span>
+          <span class="mode-text"><strong>🔀 Mélange</strong><small>La suite change entièrement à chaque manche au lieu de se répéter. Tu choisis sa longueur.</small></span>
+        </label>
+        <label class="mode-row" id="row-once">
+          <span class="switch"><input id="opt-once" type="checkbox"><span class="switch-track"><span class="switch-thumb"></span></span></span>
+          <span class="mode-text"><strong>1️⃣ Une seule fois</strong><small>La suite de départ n’est montrée qu’une fois. Ensuite, seules les nouvelles couleurs sont montrées.</small></span>
+        </label>
+        <label class="mode-row" id="row-eclipse">
+          <span class="switch"><input id="opt-eclipse" type="checkbox"><span class="switch-track"><span class="switch-thumb"></span></span></span>
+          <span class="mode-text"><strong>🌑 Éclipse</strong><small>Pendant la démonstration, seule la couleur qui s’allume apparaît à l’écran. Les autres reviennent quand c’est à toi.</small></span>
+        </label>
+        <label class="mode-row" id="row-blind">
+          <span class="switch"><input id="opt-blind" type="checkbox"><span class="switch-track"><span class="switch-thumb"></span></span></span>
+          <span class="mode-text"><strong>🙈 Aveugle</strong><small>Au début, chaque couleur joue son son une fois. Ensuite, tu n’entends que le son, tu ne vois aucune couleur.</small></span>
+        </label>
+        <label class="mode-row" id="row-sudden">
+          <span class="switch"><input id="opt-sudden" type="checkbox"><span class="switch-track"><span class="switch-thumb"></span></span></span>
+          <span class="mode-text"><strong>💀 Mort subite</strong><small id="suddenText">Tu meurs à la première faute (sinon, tu as 3 vies).</small></span>
+        </label>
+      </div>
+
+      <div class="divider">
+        <div class="field" id="lengthField">
+          <label for="startLen"><span id="lengthLabel">Longueur de départ</span> <small>(1 à 100 000)</small></label>
+          <div class="field-row">
+            <input id="startLen" type="number" min="1" max="100000" inputmode="numeric">
+            <button id="randLenBtn" class="icon-btn" title="Longueur aléatoire" aria-label="Longueur aléatoire">🎲</button>
+          </div>
+        </div>
+        <label class="switch grow-switch" id="growRow">
+          <input id="opt-grow" type="checkbox">
+          <span class="switch-track"><span class="switch-thumb"></span></span>
+          <span>Allonger de 1 à chaque manche</span>
+        </label>
+
+        <h3>Vitesse</h3>
+        <div id="speedChips" class="presets">
+          <button class="chip" data-speed="slow">🐢 Lente</button>
+          <button class="chip" data-speed="normal">🚶 Normale</button>
+          <button class="chip" data-speed="fast">🏃 Rapide</button>
+          <button class="chip" data-speed="flash">⚡ Éclair</button>
+        </div>
+        <label class="switch accel-switch">
+          <input id="opt-accel" type="checkbox">
+          <span class="switch-track"><span class="switch-thumb"></span></span>
+          <span>Accélérer quand la suite s’allonge</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- ===== Statistiques ===== -->
+    <section class="card">
+      <div class="card-head">
+        <h2>Statistiques</h2>
+        <button id="resetStatsBtn" class="btn btn-small">Réinitialiser</button>
+      </div>
+      <div class="kpis">
+        <div class="kpi"><span class="kpi-value" id="kpiGames">0</span><span class="kpi-label">parties</span></div>
+        <div class="kpi"><span class="kpi-value" id="kpiBest">—</span><span class="kpi-label">record</span></div>
+        <div class="kpi"><span class="kpi-value" id="kpiGood">0</span><span class="kpi-label">bonnes couleurs</span></div>
+        <div class="kpi"><span class="kpi-value" id="kpiAccuracy">—</span><span class="kpi-label">précision</span></div>
+      </div>
+
+      <div id="duelBox" class="duel hidden">
+        <span id="duelName0"></span>
+        <strong id="duelScore">0 – 0</strong>
+        <span id="duelName1"></span>
+      </div>
+
+      <h3 class="bars-title">Les couleurs qui te piègent</h3>
+      <div id="errorBars" class="bars"></div>
+      <p id="errorEmpty" class="muted small">Aucune erreur pour l’instant. Ça ne va pas durer 😈</p>
+
+      <details class="help">
+        <summary>Comment lire ces statistiques ?</summary>
+        <ul>
+          <li><strong>Record</strong> : ton meilleur score avec les réglages actuels (la plus longue suite réussie, ou le nombre de suites réussies en mode Mélange).</li>
+          <li><strong>Bonnes couleurs</strong> : le nombre total de couleurs que tu as retrouvées.</li>
+          <li><strong>Précision</strong> : la part de tes appuis qui étaient justes.</li>
+          <li><strong>Les couleurs qui te piègent</strong> : les couleurs que tu devais trouver au moment où tu t’es trompé.</li>
+          <li><strong>Historique</strong> : le score de tes dernières parties, de la plus récente à la plus ancienne.</li>
+        </ul>
+      </details>
+
+      <h3>Historique</h3>
+      <div id="history" class="history"><span class="muted">Aucune partie pour l’instant.</span></div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p><span id="year"></span> Turbonix Entertainment. Tous droits réservés.</p>
+  </footer>
+
+  <!-- Partage & fichier -->
+  <dialog id="shareDialog" class="dialog">
+    <form method="dialog" class="dialog-close"><button aria-label="Fermer">✕</button></form>
+    <h2>Partager &amp; sauvegarder</h2>
+
+    <h3>🔗 Lien de ta configuration</h3>
+    <p class="muted small">Envoie ce lien à tes amis : en l’ouvrant, ils retrouvent exactement tes couleurs et tes modes.</p>
+    <div class="field-row">
+      <input id="shareLink" class="input grow" type="text" readonly>
+      <button id="copyLinkBtn" class="btn btn-small">Copier</button>
+    </div>
+    <p id="fileWarn" class="warn small hidden">Le site est ouvert depuis un fichier de ton PC : pour que le lien marche chez tes amis, le site doit être en ligne.</p>
+
+    <h3>📥 Charger un lien reçu</h3>
+    <div class="field-row">
+      <input id="pasteLink" class="input grow" type="text" placeholder="Colle le lien ici" autocomplete="off">
+      <button id="loadLinkBtn" class="btn btn-small">Charger</button>
+    </div>
+    <p id="pasteError" class="error hidden"></p>
+
+    <h3>💾 Fichier de sauvegarde</h3>
+    <p class="muted small">Tout est déjà sauvegardé automatiquement sur cet appareil (dans le navigateur). Tu peux aussi garder une copie dans un fichier.</p>
+    <div class="field-row wrap">
+      <button id="exportBtn" class="btn btn-small">Télécharger le fichier (.json)</button>
+      <label class="btn btn-small file-btn">Ouvrir un fichier…
+        <input id="importInput" type="file" accept=".json,application/json" hidden>
+      </label>
+    </div>
+  </dialog>
+
+  <!-- Confirmation -->
+  <dialog id="confirmDialog" class="dialog small">
+    <h2 id="confirmTitle"></h2>
+    <p id="confirmText"></p>
+    <form method="dialog" class="dialog-actions">
+      <button value="cancel" class="btn btn-small">Annuler</button>
+      <button id="confirmOk" value="ok" class="btn btn-small btn-danger"></button>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="js/engine.js"></script>
+  <script src="js/sound.js"></script>
+  <script src="js/board-base.js"></script>
+  <script src="js/board2d.js"></script>
+  <script src="js/board3d.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
